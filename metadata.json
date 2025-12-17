@@ -1,0 +1,7 @@
+{
+  "name": "RAT LAB",
+  "description": "A futuristic Quant & Qualitative research sandbox capable of simulating hundreds of AI personalities to perform surveys, causal experiments, and behavioral analysis.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
