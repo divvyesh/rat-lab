@@ -1,11 +1,5 @@
 # RAT LAB - Behavioral Inference Engine
 
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
-
-A production-ready research sandbox for simulating behavioral agents, running surveys, and performing statistical analysis using Google Gemini API and Firebase.
-
 ## Features
 
 - **AI-Powered Persona Generation**: Create realistic behavioral agents grounded in market research
