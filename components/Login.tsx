@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
-import { User } from '../types';
-import { signInWithGoogle, signInWithApple, signInWithEmail, enterAsGuest, getActiveConfigStatus } from '../services/firebase';
-import { Rat, Loader2, AlertCircle, Mail, Apple, Globe, ExternalLink, Play, FlaskConical, ShieldCheck } from 'lucide-react';
+import { User, PlanTier } from '../types';
+import { signInWithGoogle, signInWithEmail, getActiveConfigStatus } from '../services/firebase';
+import { Rat, Loader2, Mail, Globe, ShieldCheck } from 'lucide-react';
+import ErrorDisplay from './ErrorDisplay';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -19,10 +20,44 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
 
   const configStatus = getActiveConfigStatus();
+  const isFirebaseConfigured = configStatus === 'REAL';
+
+  // Demo mode bypass - create demo user without Firebase
+  const handleDemoMode = () => {
+    console.log('🎭 Entering demo mode - bypassing Firebase');
+    const demoUser: User = {
+      id: 'demo-user-' + Date.now(),
+      name: 'Demo Researcher',
+      email: 'demo@ratlab.com',
+      plan: PlanTier.PRO,
+      avatar: 'https://ui-avatars.com/api/?name=Demo+Researcher&background=6366f1&color=fff',
+      tokens: 1000
+    };
+    onLogin(demoUser);
+  };
 
   const handleAuthError = (err: any) => {
     const message = err.message || '';
-    if (message.startsWith('UNAUTHORIZED_DOMAIN|')) {
+    
+    if (message.includes('Firebase Auth is not initialized') || 
+        message.includes('Missing configuration') ||
+        message.includes('placeholder values')) {
+      setError('Firebase Configuration Required');
+      const hasPlaceholders = (window as any).__FIREBASE_CONFIG_ERROR__?.hasPlaceholders;
+      if (hasPlaceholders) {
+        setUnauthorizedDomain('Your .env.local contains placeholder values. Replace them with actual Firebase config from Firebase Console.');
+      } else {
+        setUnauthorizedDomain('Please add Firebase config to .env.local. See FIREBASE_SETUP_GUIDE.md or run ./setup-firebase.sh');
+      }
+    } else if (message.startsWith('FIREBASE_CONFIG_MISSING|')) {
+      const detail = message.split('|')[1];
+      setError('Firebase Configuration Missing');
+      setUnauthorizedDomain(detail);
+    } else if (message.startsWith('FIREBASE_CONFIG_ERROR|')) {
+      const detail = message.split('|')[1];
+      setError('Firebase Configuration Error');
+      setUnauthorizedDomain(detail);
+    } else if (message.startsWith('UNAUTHORIZED_DOMAIN|')) {
       setUnauthorizedDomain(message.split('|')[1]);
       setError('Firebase Domain Authorization Required');
     } else {
@@ -30,22 +65,20 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
   };
 
-  const handleSocialLogin = async (provider: 'google' | 'apple') => {
+  const handleGoogleLogin = async () => {
     setLoading(true);
     setError('');
     try {
-      const user = provider === 'google' ? await signInWithGoogle() : await signInWithApple();
+      console.log("Login button clicked, starting Google sign-in");
+      const user = await signInWithGoogle();
+      console.log("Sign-in successful, calling onLogin", { id: user.id, name: user.name });
       onLogin(user);
     } catch (err: any) {
-       handleAuthError(err);
+      console.error("Login error", err);
+      handleAuthError(err);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
-  };
-
-  const handleQuickDemo = () => {
-    const user = enterAsGuest("Researcher", "demo@ratlab.local");
-    onLogin(user);
   };
 
   return (
@@ -64,44 +97,136 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
            </div>
 
            <div className="space-y-4">
-                {/* Primary Sandbox Access */}
                 <button 
-                  onClick={handleQuickDemo}
-                  className="group relative w-full h-14 bg-white hover:bg-zinc-200 text-black font-black rounded-2xl transition-all flex items-center justify-center gap-3 text-xs uppercase tracking-widest shadow-[0_0_20px_rgba(255,255,255,0.1)] active:scale-95"
+                  onClick={handleGoogleLogin} 
+                  disabled={loading} 
+                  className="w-full h-14 bg-zinc-900 border border-white/5 text-zinc-300 font-bold rounded-xl transition-all flex items-center justify-center gap-3 text-sm hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    <Play size={16} fill="currentColor" className="group-hover:translate-x-0.5 transition-transform" /> 
-                    Launch Local Sandbox
+                    {loading ? (
+                        <Loader2 size={20} className="animate-spin" />
+                    ) : (
+                        <>
+                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" className="w-5 h-5" />
+                            Continue with Google
+                        </>
+                    )}
                 </button>
 
                 <div className="relative py-6">
                     <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
-                    <div className="relative flex justify-center text-[9px]"><span className="bg-black/40 backdrop-blur px-3 text-zinc-600 font-black uppercase tracking-[0.3em]">Cloud Sync Access</span></div>
+                    <div className="relative flex justify-center text-[9px]"><span className="bg-black/40 backdrop-blur px-3 text-zinc-600 font-black uppercase tracking-[0.3em]">Or use email</span></div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => handleSocialLogin('google')} disabled={loading} className="h-12 bg-zinc-900 border border-white/5 text-zinc-300 font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-[11px] hover:bg-zinc-800">
-                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" className="w-4 h-4" />
-                        Google
+                {showEmailForm ? (
+                    <div className="space-y-4">
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="Email"
+                            className="w-full h-12 bg-zinc-950 border border-white/10 rounded-xl px-4 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500/50"
+                        />
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Password"
+                            className="w-full h-12 bg-zinc-950 border border-white/10 rounded-xl px-4 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500/50"
+                        />
+                        <div className="flex gap-3">
+                            <button
+                                onClick={async () => {
+                                    setLoading(true);
+                                    setError('');
+                                    try {
+                                        const user = await signInWithEmail(email, password, isSignUp);
+                                        onLogin(user);
+                                    } catch (err: any) {
+                                        handleAuthError(err);
+                                    } finally {
+                                        setLoading(false);
+                                    }
+                                }}
+                                disabled={loading || !email || !password}
+                                className="flex-1 h-12 bg-white hover:bg-zinc-200 text-black font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isSignUp ? 'Sign Up' : 'Sign In'}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowEmailForm(false);
+                                    setEmail('');
+                                    setPassword('');
+                                }}
+                                className="px-4 h-12 bg-zinc-900 border border-white/5 text-zinc-400 hover:text-white rounded-xl transition-all"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                        <button
+                            onClick={() => setIsSignUp(!isSignUp)}
+                            className="w-full text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                        >
+                            {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => setShowEmailForm(true)}
+                        className="w-full h-12 bg-zinc-900 border border-white/5 text-zinc-300 font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-sm hover:bg-zinc-800"
+                    >
+                        <Mail size={16} />
+                        Continue with Email
                     </button>
-                    <button onClick={() => handleSocialLogin('apple')} disabled={loading} className="h-12 bg-zinc-900 border border-white/5 text-zinc-300 font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-[11px] hover:bg-zinc-800">
-                        <Apple size={16} fill="currentColor" />
-                        Apple
-                    </button>
-                </div>
+                )}
 
                 {error && (
-                    <div className="p-5 bg-red-500/10 border border-red-500/20 rounded-2xl flex flex-col gap-3 text-red-400 text-[11px] animate-in shake duration-500">
-                        <div className="flex items-center gap-3 font-bold uppercase tracking-wider">
-                          <AlertCircle size={14} /> <span>{error}</span>
+                    <ErrorDisplay
+                      message={error}
+                      title=""
+                      variant="banner"
+                      dismissible
+                      onDismiss={() => { setError(''); setUnauthorizedDomain(null); }}
+                      className="text-[11px] animate-in shake duration-500"
+                      details={unauthorizedDomain ? (
+                        <div className="p-3 bg-black/40 rounded-xl border border-red-500/10 text-[9px] text-zinc-500 leading-relaxed font-mono mt-2">
+                          {error.includes('Configuration') ? (
+                            <>
+                              <div className="mb-2 text-red-300 font-bold">Setup Required:</div>
+                              <div className="mb-1">1. Go to Firebase Console: <span className="text-indigo-400">https://console.firebase.google.com</span></div>
+                              <div className="mb-1">2. Create/select a project</div>
+                              <div className="mb-1">3. Enable Authentication → Google sign-in</div>
+                              <div className="mb-1">4. Get your config from Project Settings → General</div>
+                              <div className="mb-1">5. Update <span className="text-yellow-400">.env.local</span> with your Firebase values</div>
+                              <div className="mt-2 text-zinc-400">{unauthorizedDomain}</div>
+                            </>
+                          ) : (
+                            <>
+                              Domain <span className="text-red-300">{unauthorizedDomain}</span> is not authorized. Whitelist it in Firebase Console &gt; Auth &gt; Settings.
+                            </>
+                          )}
                         </div>
-                        {unauthorizedDomain && (
-                          <div className="p-3 bg-black/40 rounded-xl border border-red-500/10 text-[9px] text-zinc-500 leading-relaxed font-mono">
-                            Domain <span className="text-red-300">{unauthorizedDomain}</span> is not authorized. Whitelist it in Firebase Console &gt; Auth &gt; Settings.
-                          </div>
-                        )}
-                    </div>
+                      ) : undefined}
+                    />
                 )}
            </div>
+
+           {/* Demo Mode Button - Show when Firebase not configured */}
+           {!isFirebaseConfigured && (
+             <div className="mt-6 pt-6 border-t border-white/5">
+               <button
+                 onClick={handleDemoMode}
+                 disabled={loading}
+                 className="w-full h-12 bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-400 font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+               >
+                 <ShieldCheck size={16} />
+                 Try Demo Mode (No Firebase Required)
+               </button>
+               <p className="text-[9px] text-zinc-600 text-center mt-2">
+                 Demo mode lets you explore the app without Firebase setup. Data won't persist.
+               </p>
+             </div>
+           )}
            
            <div className="mt-12 pt-8 border-t border-white/5 flex flex-col items-center gap-4">
                 <div className="flex items-center gap-3 px-4 py-2 bg-zinc-950/50 rounded-full border border-white/5 shadow-inner">

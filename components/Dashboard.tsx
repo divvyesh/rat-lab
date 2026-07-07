@@ -1,17 +1,28 @@
 
 import React, { useState } from 'react';
-import { Persona, SimulationResult, AppView } from '../types';
-import { Users, FlaskConical, Activity, Plus, History, ClipboardList, BrainCircuit } from 'lucide-react';
+import { Persona, SimulationResult, AppView, SavedSimulation } from '../types';
+import { Users, FlaskConical, Activity, Plus, History, ClipboardList, BrainCircuit, BookOpen } from 'lucide-react';
 import InfoModal, { InfoButton } from './InfoModal';
+import Welcome from './Welcome';
+import TransparencyPanel from './TransparencyPanel';
+import CostCalculator from './CostCalculator';
+import UseCaseTemplates from './UseCaseTemplates';
+import MethodologyExplainer from './MethodologyExplainer';
+import PersonasFAQ from './PersonasFAQ';
 
 interface DashboardProps {
     personas: Persona[];
     results: SimulationResult[];
     onChangeView: (view: AppView) => void;
+    savedSimulations?: SavedSimulation[];
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ personas, results, onChangeView }) => {
+const Dashboard: React.FC<DashboardProps> = ({ personas, results, onChangeView, savedSimulations = [] }) => {
     const [help, setHelp] = useState<{ title: string; content: string } | null>(null);
+    const [showWelcome, setShowWelcome] = useState(false);
+    const [showTransparency, setShowTransparency] = useState(false);
+    const [showCostCalculator, setShowCostCalculator] = useState(false);
+    const [showUseCases, setShowUseCases] = useState(false);
 
     return (
         <div className="space-y-10 animate-in fade-in duration-500 pb-20">
@@ -21,6 +32,13 @@ const Dashboard: React.FC<DashboardProps> = ({ personas, results, onChangeView }
               title={help?.title || ""} 
               content={help?.content || ""} 
             />
+            
+            {showWelcome && (
+              <Welcome 
+                onClose={() => setShowWelcome(false)} 
+                onNavigate={onChangeView}
+              />
+            )}
 
             {/* Hero Section */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -29,10 +47,16 @@ const Dashboard: React.FC<DashboardProps> = ({ personas, results, onChangeView }
                         Lab Console
                     </h1>
                     <p className="text-zinc-400 max-w-xl text-sm leading-relaxed">
-                        System ready. <span className="text-zinc-100 font-bold">{personas.length} personas</span> across <span className="text-zinc-100 font-bold">{new Set(personas.map(p => p.segmentId)).size} segments</span>. Total research ledger: <span className="text-zinc-100 font-bold">{results.length} entries</span>.
+                        System ready. <span className="text-zinc-100 font-bold">{personas.length} personas</span> across <span className="text-zinc-100 font-bold">{personas.length > 0 ? new Set(personas.map(p => p.segmentId)).size : 0} segments</span>. Total research ledger: <span className="text-zinc-100 font-bold">{results.length} entries</span>.
                     </p>
                 </div>
                 <div className="flex gap-3">
+                    <button 
+                        onClick={() => setShowWelcome(true)}
+                        className="px-5 py-2.5 bg-purple-600/20 text-purple-400 border border-purple-500/30 rounded-xl text-sm font-bold hover:bg-purple-600 hover:text-white transition-all flex items-center gap-2 active:scale-95"
+                    >
+                        <BookOpen size={16} /> Quick Start
+                    </button>
                     <div className="relative group">
                         <button 
                             onClick={() => onChangeView(AppView.PERSONA_BUILDER)}
@@ -129,7 +153,7 @@ const Dashboard: React.FC<DashboardProps> = ({ personas, results, onChangeView }
                             <InfoButton 
                                 onClick={() => setHelp({
                                     title: "Inference Status",
-                                    content: "The 'Inference Engine' is the deep reasoning core powered by Gemini 3. When it's 'Ready', the system is capable of simulating complex human thought processes and long-form rationalization."
+                                    content: "The 'Inference Engine' is the deep reasoning core powered by OpenAI GPT-4. When it's 'Ready', the system is capable of simulating complex human thought processes and long-form rationalization."
                                 })}
                             />
                         </div>
@@ -140,6 +164,39 @@ const Dashboard: React.FC<DashboardProps> = ({ personas, results, onChangeView }
                     </div>
                 </div>
             </div>
+
+            {/* Saved Simulations Section */}
+            {savedSimulations.length > 0 && (
+                <div className="bg-zinc-900/20 border border-white/5 rounded-3xl p-8 backdrop-blur-sm shadow-inner">
+                    <h3 className="text-xs font-bold text-zinc-500 mb-6 uppercase tracking-[0.2em] flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                            <ClipboardList size={14} className="text-indigo-400" /> Saved Simulations
+                        </span>
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {savedSimulations.slice().reverse().map((sim) => (
+                            <div 
+                                key={sim.id}
+                                onClick={() => onChangeView(AppView.EXPERIMENT_LAB)}
+                                className="bg-zinc-950/50 border border-white/5 rounded-2xl p-4 hover:border-indigo-500/30 transition-all cursor-pointer group"
+                            >
+                                <div className="flex items-start justify-between mb-2">
+                                    <h4 className="text-sm font-bold text-white group-hover:text-indigo-400 transition-colors">{sim.name}</h4>
+                                    <span className="text-[9px] text-zinc-600">{new Date(sim.createdAt).toLocaleDateString()}</span>
+                                </div>
+                                {sim.description && (
+                                    <p className="text-xs text-zinc-500 mb-3 line-clamp-2">{sim.description}</p>
+                                )}
+                                <div className="flex items-center gap-4 text-[10px] text-zinc-600">
+                                    <span>{sim.personaCount} personas</span>
+                                    <span>•</span>
+                                    <span>{sim.questions.length} questions</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Latest Findings Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -188,14 +245,14 @@ const Dashboard: React.FC<DashboardProps> = ({ personas, results, onChangeView }
                         <div className="flex items-center justify-between py-4 border-b border-white/5 hover:bg-white/5 px-2 rounded-xl transition-all group">
                             <div className="flex items-center gap-3">
                                 <div className="w-1 h-1 rounded-full bg-zinc-600 group-hover:bg-indigo-400"></div>
-                                <span className="text-xs font-bold text-zinc-400 group-hover:text-white transition-colors">Gemini 3.0 Pro Model</span>
+                                <span className="text-xs font-bold text-zinc-400 group-hover:text-white transition-colors">OpenAI GPT-4 Turbo</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10 uppercase tracking-tighter">Verified</span>
                                 <InfoButton 
                                     onClick={() => setHelp({
                                         title: "AI Model Tier",
-                                        content: "Rat Lab uses Gemini 3 Pro for its superior reasoning and long-context capabilities, essential for simulating high-fidelity human personas and behavioral biases."
+                                        content: "Rat Lab uses OpenAI GPT-4 Turbo for its superior reasoning and long-context capabilities, essential for simulating high-fidelity human personas and behavioral biases."
                                     })}
                                 />
                             </div>
@@ -231,6 +288,47 @@ const Dashboard: React.FC<DashboardProps> = ({ personas, results, onChangeView }
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* Competitive Advantages Section */}
+            <div className="space-y-6 mt-12">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-xl font-bold text-white mb-1">Why Choose Rat Lab?</h2>
+                        <p className="text-sm text-zinc-500">Transparency, cost-efficiency, and advanced science</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Transparency */}
+                    <TransparencyPanel />
+
+                    {/* Cost Calculator */}
+                    <CostCalculator 
+                        currentUsage={{
+                            personas: personas.length,
+                            simulations: savedSimulations.length,
+                            apiCalls: results.length * 10 // Estimate
+                        }}
+                    />
+                </div>
+
+                {/* Methodology */}
+                <MethodologyExplainer />
+
+                {/* Use Cases */}
+                <UseCaseTemplates 
+                    onSelect={(template) => {
+                        if (template.targetView) {
+                            onChangeView(template.targetView);
+                        }
+                    }}
+                />
+
+                {/* Personas FAQ */}
+                <div className="mt-6">
+                    <PersonasFAQ />
                 </div>
             </div>
         </div>

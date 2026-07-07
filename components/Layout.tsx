@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { AppView, User } from '../types';
-import { BrainCircuit, Users, FlaskConical, BarChart3, Menu, Image, LogOut, Rat, Cloud, HardDrive, Zap } from 'lucide-react';
+import { BrainCircuit, Users, FlaskConical, BarChart3, Menu, Image, LogOut, Rat, Cloud, HardDrive, Zap, Network, Code , FileText, Settings } from 'lucide-react';
 import { getActiveConfigStatus } from '../services/firebase';
 
 interface LayoutProps {
@@ -16,9 +16,14 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onChangeView, user, onLogo
   const navItems = [
     { id: AppView.DASHBOARD, label: 'Overview', icon: <BrainCircuit size={18} /> },
     { id: AppView.PERSONA_BUILDER, label: 'Cohorts', icon: <Users size={18} /> },
+    { id: AppView.SOCIETIES, label: 'Sample Population', icon: <Network size={18} /> },
     { id: AppView.EXPERIMENT_LAB, label: 'Simulations', icon: <FlaskConical size={18} /> },
     { id: AppView.ANALYSIS, label: 'Analysis', icon: <BarChart3 size={18} /> },
     { id: AppView.ASSETS, label: 'Assets', icon: <Image size={18} /> },
+    { id: AppView.TEMPLATES, label: 'Templates', icon: <FileText size={18} /> },
+    { id: AppView.WORKSPACES, label: 'Workspaces', icon: <Users size={18} /> },
+    { id: AppView.SETTINGS, label: 'Settings', icon: <Settings size={18} /> },
+    { id: AppView.API_PLAYGROUND, label: 'API', icon: <Code size={18} /> },
   ];
 
   const configStatus = getActiveConfigStatus();
@@ -40,7 +45,7 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onChangeView, user, onLogo
               <Zap size={14} className="text-amber-500 group-hover:animate-pulse" />
               <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Inference Credits</div>
             </div>
-            <div className="text-sm font-mono font-bold text-white">942</div>
+            <div className="text-sm font-mono font-bold text-white">{user.tokens || 0}</div>
           </div>
         )}
         
@@ -66,7 +71,29 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onChangeView, user, onLogo
                     <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-tight">{configStatus === 'REAL' ? 'Sync On' : 'Demo Mode'}</span>
                  </div>
                  <div className="flex items-center gap-3 mb-3 px-1">
-                    <img src={user.avatar} alt="User" className="w-8 h-8 rounded-full ring-2 ring-black" />
+                    <div className="relative flex-shrink-0">
+                      <img 
+                        src={user.avatar} 
+                        alt={user.name || "User"} 
+                        className="w-8 h-8 rounded-full ring-2 ring-black object-cover bg-zinc-800"
+                        crossOrigin="anonymous"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          // Fallback to generated avatar if image fails to load
+                          const target = e.target as HTMLImageElement;
+                          console.log("🖼️ Image failed to load, using fallback:", {
+                            originalSrc: user.avatar,
+                            userName: user.name
+                          });
+                          if (!target.src.includes('ui-avatars.com')) {
+                            target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'User')}&background=6366f1&color=fff&size=128&bold=true`;
+                          }
+                        }}
+                        onLoad={() => {
+                          console.log("🖼️ Avatar image loaded successfully:", user.avatar);
+                        }}
+                      />
+                    </div>
                     <div className="flex-1 overflow-hidden">
                         <div className="text-sm font-medium text-zinc-200 truncate">{user.name}</div>
                         <div className="text-[10px] text-zinc-500 uppercase tracking-wide">Research Lead</div>

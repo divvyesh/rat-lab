@@ -10,13 +10,29 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
       },
       plugins: [react()],
-      define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
-      },
+      // Vite automatically exposes env vars prefixed with VITE_ to client-side code
+      // No need for define block - use import.meta.env.VITE_* directly in code
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
+        }
+      },
+      test: {
+        globals: true,
+        environment: 'jsdom',
+        setupFiles: './tests/setup.ts',
+        coverage: {
+          provider: 'v8',
+          reporter: ['text', 'json', 'html'],
+          exclude: [
+            'node_modules/',
+            'tests/',
+            '*.config.*',
+            'dist/',
+            '**/*.d.ts',
+            '**/*.test.*',
+            '**/*.spec.*'
+          ]
         }
       }
     };

@@ -4,6 +4,7 @@ import { copilotChat } from '../services/geminiService';
 import { X, Send, Sparkles, Loader2, Rat, ExternalLink, Settings, Info } from 'lucide-react';
 import { User, AppView, AgentActions, CopilotLength, CopilotTone } from '../types';
 import InfoModal, { InfoButton } from './InfoModal';
+import { createUserFriendlyError, logError } from '../utils/errorHandling';
 
 interface CopilotProps {
   user: User;
@@ -20,7 +21,20 @@ const Copilot: React.FC<CopilotProps> = ({ user, context, onNavigate, agentActio
   const [help, setHelp] = useState<{ title: string; content: string } | null>(null);
 
   const [messages, setMessages] = useState<{role: 'user' | 'model', content: string}[]>([
-      { role: 'model', content: `Hello ${user.name}. I am the RAT LAB System Core. I can guide you through constructing cohorts, designing experiments, or analyzing behavioral data. Where shall we begin?` }
+      { role: 'model', content: `Hello ${user.name}! 👋 I'm your RAT LAB Research Designer.
+
+I can help you:
+• **Create cohorts** - Build AI personas for market segments
+• **Design experiments** - Set up surveys and behavioral tests  
+• **Analyze results** - Get statistical insights and GTM recommendations
+• **Run simulations** - Test pricing, messaging, adoption, and more
+
+**Quick Start:**
+1. Go to [Cohorts](NAV:PERSONA_BUILDER) to create your first segment
+2. Use [Simulations](NAV:EXPERIMENT_LAB) to test with your personas
+3. Check [Analysis](NAV:ANALYSIS) for statistical insights
+
+What would you like to do first?` }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -65,14 +79,18 @@ const Copilot: React.FC<CopilotProps> = ({ user, context, onNavigate, agentActio
                     finalReply = `**Executed Plan:** ${plan.title}\n\n${plan.description}\n\n*System updated successfully.*`;
                 }
             } catch (e) {
-                console.error("Agent plan execution failed", e);
+                const err = e instanceof Error ? e : new Error(String(e));
+                logError(err, { component: 'Copilot', action: 'agent_plan_execution' });
+                finalReply = createUserFriendlyError(err, { component: 'Copilot', action: 'agent_plan_execution' }).message;
             }
         }
 
         setMessages(prev => [...prev, { role: 'model', content: finalReply || "I couldn't process that." }]);
     } catch (e) {
-        console.error(e);
-        setMessages(prev => [...prev, { role: 'model', content: "Error connecting to Copilot service." }]);
+        const err = e instanceof Error ? e : new Error(String(e));
+        const friendly = createUserFriendlyError(err, { component: 'Copilot', action: 'copilot_chat' });
+        logError(err, { component: 'Copilot', action: 'copilot_chat' });
+        setMessages(prev => [...prev, { role: 'model', content: friendly.message }]);
     } finally {
         setLoading(false);
     }
@@ -240,7 +258,7 @@ const Copilot: React.FC<CopilotProps> = ({ user, context, onNavigate, agentActio
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="Ask the system..."
+                placeholder="Ask about cohorts, experiments, analysis..."
                 className="flex-1 bg-zinc-900/50 border border-white/10 rounded-xl px-4 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500/50 focus:bg-zinc-900 transition-all placeholder:text-zinc-700"
             />
             <button 
